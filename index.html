@@ -1367,6 +1367,14 @@ window.__EXAMPLES__ = {};
       const searchInput = document.getElementById('search');
       searchInput.addEventListener('input', (e) => {
         state.search = e.target.value.toLowerCase();
+        // Mobile: switch to list view so user can see filtered results
+        if (window.innerWidth <= 768 && e.target.value) {
+          const app = document.querySelector('.app');
+          const toggle = document.getElementById('mobile-view-toggle');
+          app.classList.remove('mobile-detail');
+          toggle.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+          toggle.querySelector('[data-view="list"]').classList.add('active');
+        }
         updateUI();
       });
 
