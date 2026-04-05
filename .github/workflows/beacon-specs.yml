@@ -1,0 +1,53 @@
+name: Build & Deploy Beacon Specs Explorer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - './**'
+      - '.github/workflows/beacon-specs.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 6am UTC — pick up spec changes
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Clone consensus-specs
+        run: git clone --depth 1 https://github.com/ethereum/consensus-specs.git /tmp/consensus-specs
+
+      - name: Build explorer
+        working-directory: .
+        run: python3 build.py --repo-dir /tmp/consensus-specs --out-dir ./dist
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

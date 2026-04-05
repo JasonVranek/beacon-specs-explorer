@@ -1,0 +1,9 @@
+.worktrees/
+*.DS_Store
+
+# Generated artifacts (built in CI)
+beacon_specs_index.json
+examples.json
+examples.js
+dist/
+__pycache__/

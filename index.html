@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beacon Chain Spec Explorer</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-2: #1c2128;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --text-dim: #6e7681;
+      --accent: #58a6ff;
+      --accent-hover: #79c0ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --orange: #d29922;
+      --purple: #bc8cff;
+      --pink: #f778ba;
+      --cyan: #39d2c0;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: 260px 320px 1fr;
+      grid-template-rows: 56px 1fr;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+    }
+
+    .header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      color: var(--text);
+    }
+
+    .header h1 span {
+      color: var(--accent);
+    }
+
+    .search-box {
+      flex: 1;
+      max-width: 480px;
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 6px 12px 6px 32px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box::before {
+      content: '⌕';
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .header-stats {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    /* ── Sidebar (domains + forks) ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-section {
+      padding: 0 12px;
+      margin-bottom: 16px;
+    }
+
+    .sidebar-section h3 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      padding: 0 4px;
+    }
+
+    .domain-btn,
+    .kind-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 5px 8px;
+      background: none;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.1s;
+    }
+
+    .domain-btn:hover,
+    .kind-btn:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .domain-btn.active,
+    .kind-btn.active {
+      background: rgba(88, 166, 255, 0.1);
+      color: var(--accent);
+    }
+
+    .domain-btn .count,
+    .kind-btn .count {
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--bg);
+      padding: 0 6px;
+      border-radius: 10px;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .domain-btn.active .count,
+    .kind-btn.active .count {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+    }
+
+    /* Fork pills */
+    .fork-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 0 4px;
+    }
+
+    .fork-pill {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.1s;
+      user-select: none;
+    }
+
+    .fork-pill:hover {
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+
+    .fork-pill.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(88, 166, 255, 0.1);
+    }
+
+    .fork-pill.is-feature {
+      border-style: dashed;
+    }
+
+    /* EIP pills */
+    .eip-pill {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.1s;
+      user-select: none;
+    }
+
+    .eip-pill:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .eip-pill.active {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: rgba(210, 153, 34, 0.1);
+    }
+
+    .eip-pill .eip-count {
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-left: 3px;
+    }
+
+    .eip-pill.active .eip-count {
+      color: var(--orange);
+    }
+
+    /* ── Item list (middle panel) ── */
+    .item-list {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      background: var(--bg);
+    }
+
+    .item-list-header {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 5;
+    }
+
+    .item-list-header .result-count {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .sort-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 2px 6px;
+      cursor: pointer;
+    }
+
+    .item-row {
+      display: block;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .item-row:hover {
+      background: var(--surface);
+    }
+
+    .item-row.active {
+      background: var(--surface-2);
+      border-left: 2px solid var(--accent);
+      padding-left: 12px;
+    }
+
+    .item-name {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .item-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .item-kind {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    .item-kind.class {
+      background: rgba(188, 140, 255, 0.15);
+      color: var(--purple);
+    }
+
+    .item-kind.def {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--green);
+    }
+
+    .item-kind.dataclass {
+      background: rgba(247, 120, 186, 0.15);
+      color: var(--pink);
+    }
+
+    .item-kind.other {
+      background: rgba(139, 148, 158, 0.15);
+      color: var(--text-muted);
+    }
+
+    .item-domain-tag {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .item-forks-mini {
+      display: flex;
+      gap: 2px;
+      margin-top: 3px;
+    }
+
+    .fork-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.1s;
+    }
+
+    .fork-dot.is-new {
+      background: var(--green);
+    }
+
+    .fork-dot.is-modified {
+      background: var(--orange);
+    }
+
+    .fork-dot[title] {
+      cursor: help;
+    }
+
+    /* ── Detail panel ── */
+    .detail {
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .detail-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    .detail-header {
+      margin-bottom: 20px;
+    }
+
+    .detail-name {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .detail-badges {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .badge-kind {
+      background: rgba(88, 166, 255, 0.12);
+      color: var(--accent);
+    }
+
+    .badge-domain {
+      background: rgba(57, 210, 192, 0.12);
+      color: var(--cyan);
+    }
+
+    .badge-introduced {
+      background: rgba(63, 185, 80, 0.12);
+      color: var(--green);
+    }
+
+    .detail-nav {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .fork-tab {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .fork-tab:hover {
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+
+    .fork-tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(88, 166, 255, 0.08);
+    }
+
+    .fork-tab .fork-tab-label {
+      font-size: 9px;
+      margin-left: 4px;
+      font-weight: 600;
+    }
+
+    .fork-tab .fork-tab-label.new {
+      color: var(--green);
+    }
+
+    .fork-tab .fork-tab-label.modified {
+      color: var(--orange);
+    }
+
+    .detail-section {
+      margin-bottom: 20px;
+    }
+
+    .detail-section h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.6;
+      white-space: pre;
+      color: var(--text);
+      tab-size: 4;
+    }
+
+    .code-block .comment {
+      color: var(--text-dim);
+    }
+
+    .code-block .keyword {
+      color: var(--purple);
+    }
+
+    .code-block .builtin {
+      color: var(--cyan);
+    }
+
+    .code-block .string {
+      color: #a5d6ff;
+    }
+
+    .code-block .decorator {
+      color: var(--orange);
+    }
+
+    .code-block .new-marker {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .code-block .mod-marker {
+      color: var(--orange);
+      font-weight: 600;
+    }
+
+    .code-block .type-name {
+      color: var(--accent);
+    }
+
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: rgba(88, 166, 255, 0.08);
+      transition: background 0.15s;
+    }
+
+    .github-link:hover {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent-hover);
+    }
+
+    .inline-comments {
+      margin-top: 8px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .inline-comment {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+    }
+
+    .inline-comment.new {
+      background: rgba(63, 185, 80, 0.12);
+      color: var(--green);
+    }
+
+    .inline-comment.modified {
+      background: rgba(210, 153, 34, 0.12);
+      color: var(--orange);
+    }
+
+    /* Diff view */
+    .diff-container {
+      margin-top: 12px;
+    }
+
+    .diff-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre;
+    }
+
+    .diff-added {
+      color: var(--green);
+      background: rgba(63, 185, 80, 0.08);
+    }
+
+    .diff-removed {
+      color: var(--red);
+      background: rgba(248, 81, 73, 0.08);
+    }
+
+    .diff-context {
+      color: var(--text-muted);
+    }
+
+    /* View mode toggle */
+    .view-toggle {
+      display: flex;
+      gap: 2px;
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 2px;
+      border: 1px solid var(--border);
+    }
+
+    .view-toggle button {
+      padding: 3px 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-sans);
+      color: var(--text-muted);
+      background: none;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .view-toggle button.active {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .view-toggle button:hover:not(.active) {
+      color: var(--text);
+    }
+
+    /* Constants and type aliases panel */
+    .table-view {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .table-view th {
+      text-align: left;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+    }
+
+    .table-view td {
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .table-view td:first-child {
+      color: var(--text);
+    }
+
+    .table-view tr:hover td {
+      background: var(--surface);
+    }
+
+    /* Keyboard shortcut hint */
+    .kbd {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 4px;
+      color: var(--text-dim);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* Section path breadcrumb */
+    .section-path {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .section-path span {
+      color: var(--text-muted);
+    }
+
+    .section-path span::after {
+      content: ' › ';
+      color: var(--text-dim);
+    }
+
+    .section-path span:last-child::after {
+      content: '';
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <h1><span>◆</span> Beacon Chain Spec Explorer</h1>
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Search types, functions, constants...  (press / to focus)"
+          autocomplete="off" spellcheck="false">
+      </div>
+      <div class="header-stats" id="header-stats"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <h3>View</h3>
+        <button class="kind-btn active" data-kind="all">
+          <span>All definitions</span>
+          <span class="count" id="count-all">0</span>
+        </button>
+        <button class="kind-btn" data-kind="class">
+          <span>Types / Classes</span>
+          <span class="count" id="count-class">0</span>
+        </button>
+        <button class="kind-btn" data-kind="def">
+          <span>Functions</span>
+          <span class="count" id="count-def">0</span>
+        </button>
+        <button class="kind-btn" data-kind="constants">
+          <span>Constants / Presets</span>
+          <span class="count" id="count-constants">0</span>
+        </button>
+        <button class="kind-btn" data-kind="type_aliases">
+          <span>Custom Types</span>
+          <span class="count" id="count-aliases">0</span>
+        </button>
+      </div>
+      <div class="sidebar-section">
+        <h3>Domains</h3>
+        <div id="domain-list"></div>
+      </div>
+      <div class="sidebar-section">
+        <h3>Forks</h3>
+        <div class="fork-pills" id="fork-pills"></div>
+      </div>
+      <div class="sidebar-section">
+        <h3>EIPs</h3>
+        <div class="fork-pills" id="eip-pills"></div>
+      </div>
+      <div class="sidebar-section">
+        <h3>Entry Points</h3>
+        <button class="domain-btn" data-entry="state_transition"><span>Block Processing</span><span class="count"
+            style="background:none">→</span></button>
+        <button class="domain-btn" data-entry="process_epoch"><span>Epoch Processing</span><span class="count"
+            style="background:none">→</span></button>
+        <button class="domain-btn" data-entry="on_block"><span>Fork Choice</span><span class="count"
+            style="background:none">→</span></button>
+        <button class="domain-btn" data-entry="BeaconState"><span>Beacon State</span><span class="count"
+            style="background:none">→</span></button>
+        <button class="domain-btn" data-entry="BeaconBlockBody"><span>Block Body</span><span class="count"
+            style="background:none">→</span></button>
+      </div>
+      <div class="sidebar-section" style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="kind-btn" id="about-btn">
+          <span>About</span>
+          <span class="count" style="background:none;color:var(--text-dim)">?</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Item list -->
+    <div class="item-list" id="item-list">
+      <div class="item-list-header">
+        <span class="result-count" id="result-count">0 results</span>
+        <select class="sort-select" id="sort-select">
+          <option value="name">Sort: Name</option>
+          <option value="introduced">Sort: Introduced</option>
+          <option value="modified">Sort: Most modified</option>
+          <option value="domain">Sort: Domain</option>
+        </select>
+      </div>
+      <div id="item-rows"></div>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail" id="detail">
+      <div class="detail-empty" id="detail-empty">
+        Select an item to view its definition across forks
+      </div>
+      <div id="detail-content" style="display:none"></div>
+    </div>
+  </div>
+
+  <script>
+window.__EXAMPLES__ = {};
+</script>
+  <script>
+    // ── State ──
+    let DATA = null;
+    let EXAMPLES = null;
+    const FORK_ORDER = [];
+    const FEATURES = [];
+    let state = {
+      search: '',
+      kind: 'all',        // all | class | def | constants | type_aliases
+      domain: null,        // null = all
+      forks: new Set(),    // empty = all
+      eips: new Set(),     // empty = all, non-empty = filter to items with these EIPs
+      selected: null,      // item name
+      selectedFork: null,  // which fork tab is active in detail
+      sort: 'name',
+      viewMode: 'single',  // single | diff
+    };
+
+    // ── Domain display names ──
+    const DOMAIN_LABELS = {
+      'beacon-state': 'Beacon State',
+      'block-processing': 'Block Processing',
+      'builder-pbs': 'Builder / PBS',
+      'cryptography': 'Cryptography',
+      'data-availability': 'Data Availability',
+      'epoch-processing': 'Epoch Processing',
+      'fork-choice': 'Fork Choice',
+      'fork-transitions': 'Fork Transitions',
+      'genesis': 'Genesis',
+      'helpers': 'Helpers',
+      'light-client': 'Light Client',
+      'networking': 'Networking / P2P',
+      'validator-duties': 'Validator Duties',
+      'weak-subjectivity': 'Weak Subjectivity',
+    };
+
+    // ── Syntax highlighting (simple) ──
+    function highlightPython(code) {
+      // Single-pass tokenizer: split into comments, strings, and code segments,
+      // then only apply keyword highlighting to code segments.
+      const lines = code.split('\n');
+      return lines.map(line => {
+        // Escape HTML
+        const esc = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // Find comment start (not inside a string)
+        let inStr = null, commentIdx = -1;
+        for (let i = 0; i < esc.length; i++) {
+          const ch = esc[i];
+          if (inStr) {
+            if (ch === '\\') { i++; continue; }
+            if (ch === inStr) inStr = null;
+          } else {
+            if (ch === '"' || ch === "'") inStr = ch;
+            else if (ch === '#') { commentIdx = i; break; }
+          }
+        }
+
+        let codePart, commentPart;
+        if (commentIdx >= 0) {
+          codePart = esc.slice(0, commentIdx);
+          const rawComment = esc.slice(commentIdx);
+          // Highlight [New in X] and [Modified in X] inside comments
+          commentPart = rawComment
+            .replace(/(\[New in [^\]]+\])/g, '<span class="new-marker">$1</span>')
+            .replace(/(\[Modified in [^\]]+\])/g, '<span class="mod-marker">$1</span>');
+          commentPart = '<span class="comment">' + commentPart + '</span>';
+        } else {
+          codePart = esc;
+          commentPart = '';
+        }
+
+        // Highlight keywords in code part only (not inside strings either)
+        const KW = /\b(class|def|return|if|else|elif|for|while|in|not|and|or|is|assert|raise|import|from|as|with|yield|pass|break|continue|try|except|finally|True|False|None|lambda)\b/g;
+
+        // Linkify known spec identifiers (types, functions, constants, aliases)
+        function linkifyCode(segment) {
+          if (!DATA || !DATA.items) return segment.replace(KW, '<span class="keyword">$1</span>');
+          // First pass: keywords
+          let result = segment.replace(KW, '<span class="keyword">$1</span>');
+          // Second pass: known identifiers not already inside a <span>
+          // We split on existing spans, only process text outside them
+          const parts = result.split(/(<span[^>]*>.*?<\/span>)/g);
+          result = parts.map(part => {
+            if (part.startsWith('<span')) return part; // Already a span, skip
+            return part.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (match) => {
+              if (DATA.items[match]) {
+                const kind = DATA.items[match].kind;
+                const cls = (kind === 'class' || kind === 'dataclass') ? 'color:var(--purple)' : 'color:var(--green)';
+                return `<span style="${cls};cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="${match}">${match}</span>`;
+              }
+              if (DATA.type_aliases && DATA.type_aliases[match]) {
+                return `<span style="color:var(--purple);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="__alias__${match}">${match}</span>`;
+              }
+              if (DATA.constants && DATA.constants[match]) {
+                return `<span style="color:var(--orange);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="__const__${match}">${match}</span>`;
+              }
+              return match;
+            });
+          }).join('');
+          return result;
+        }
+
+        // Tokenize code part into strings vs non-strings
+        const STRING_RE = /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g;
+        let highlighted = '';
+        let lastIdx = 0;
+        let m;
+        while ((m = STRING_RE.exec(codePart)) !== null) {
+          // Process code before this string
+          const before = codePart.slice(lastIdx, m.index);
+          highlighted += linkifyCode(before);
+          highlighted += '<span class="string">' + m[0] + '</span>';
+          lastIdx = m.index + m[0].length;
+        }
+        // Process remaining code after last string
+        const remaining = codePart.slice(lastIdx);
+        highlighted += linkifyCode(remaining);
+
+        // Decorators
+        if (highlighted.trimStart().startsWith('@')) {
+          highlighted = highlighted.replace(/^(\s*)(@\w+)/, '$1<span class="decorator">$2</span>');
+        }
+
+        return highlighted + commentPart;
+      }).join('\n');
+    }
+
+    // ── Simple diff between two code strings ──
+    function computeDiff(oldCode, newCode) {
+      const oldLines = oldCode.split('\n');
+      const newLines = newCode.split('\n');
+      const result = [];
+
+      // Simple line-by-line diff (good enough for spec diffs)
+      const oldSet = new Set(oldLines.map(l => l.trim()));
+      const newSet = new Set(newLines.map(l => l.trim()));
+
+      // Show new code with markers for added/changed lines
+      for (const line of newLines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          result.push({ type: 'context', line });
+        } else if (!oldSet.has(trimmed)) {
+          result.push({ type: 'added', line });
+        } else {
+          result.push({ type: 'context', line });
+        }
+      }
+
+      // Prepend removed lines that aren't in new
+      const removed = [];
+      for (const line of oldLines) {
+        const trimmed = line.trim();
+        if (trimmed && !newSet.has(trimmed)) {
+          removed.push({ type: 'removed', line });
+        }
+      }
+
+      return { removed, lines: result };
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function linkifyType(typeStr) {
+      // Turn a type string like "List[Validator, LIMIT]" into HTML where
+      // known spec types and constants become clickable.
+      if (!DATA || !DATA.items) return escapeHtml(typeStr);
+      const escaped = escapeHtml(typeStr);
+      // Match PascalCase words (types) and UPPER_SNAKE_CASE words (constants)
+      return escaped.replace(/\b([A-Z][A-Za-z0-9_]+)\b/g, (match) => {
+        const isItem = !!DATA.items[match];
+        const isAlias = !!(DATA.type_aliases && DATA.type_aliases[match]);
+        const isConst = !!(DATA.constants && DATA.constants[match]);
+        if (isItem || isAlias) {
+          const target = isItem ? match : `__alias__${match}`;
+          return `<span style="color:var(--purple);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="${target}">${match}</span>`;
+        }
+        if (isConst) {
+          return `<span style="color:var(--orange);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="__const__${match}">${match}</span>`;
+        }
+        // Style UPPER_SNAKE as dim even if not in our constants list
+        if (/^[A-Z][A-Z0-9_]+$/.test(match)) {
+          return `<span style="color:var(--text-muted)">${match}</span>`;
+        }
+        return `<span style="color:var(--purple)">${match}</span>`;
+      });
+    }
+
+    // ── Hash routing ──
+    // All navigation goes through the URL hash. Browser back/forward just works.
+    // Format: #/ItemName  or  #/ItemName/fork  or  #/about
+
+    let hashUpdateFromCode = false; // prevent feedback loops
+
+    function setHash(item, fork) {
+      let hash = '#/';
+      if (item) {
+        hash += encodeURIComponent(item);
+        if (fork) hash += '/' + encodeURIComponent(fork);
+      }
+      hashUpdateFromCode = true;
+      window.location.hash = hash;
+    }
+
+    function navigateTo(itemName) {
+      setHash(itemName, null);
+    }
+
+    function navigateBack() {
+      history.back();
+    }
+
+    function readHash() {
+      const hash = window.location.hash;
+      if (!hash || hash === '#/') {
+        state.selected = null;
+        state.selectedFork = null;
+      } else if (hash === '#/about') {
+        // Handled separately
+        return 'about';
+      } else {
+        const parts = hash.slice(2).split('/').map(decodeURIComponent);
+        state.selected = parts[0] || null;
+        state.selectedFork = parts[1] || null;
+      }
+      return 'item';
+    }
+
+    window.addEventListener('hashchange', () => {
+      if (hashUpdateFromCode) {
+        hashUpdateFromCode = false;
+      }
+      const mode = readHash();
+      if (mode === 'about') {
+        showAbout();
+      } else {
+        updateUI();
+      }
+    });
+
+    const EMBEDDED_DATA = null;
+
+    // ── Data loading ──
+    async function loadData() {
+      // Try fetch first (GitHub Pages), fall back to embedded data (file://)
+      try {
+        const resp = await fetch('beacon_specs_index.json');
+        if (!resp.ok) throw new Error(resp.status);
+        DATA = await resp.json();
+      } catch (e) {
+        console.log('Fetch failed, using embedded data:', e.message);
+        const el = document.getElementById('spec-data');
+        if (el) DATA = JSON.parse(el.textContent);
+        else throw new Error('No embedded data found');
+      }
+      FORK_ORDER.push(...DATA._meta.fork_order);
+      FEATURES.push(...DATA._meta.features);
+      // Load examples (from examples.js script tag or fetch)
+      if (window.__EXAMPLES__) {
+        EXAMPLES = window.__EXAMPLES__;
+      } else {
+        try {
+          const exResp = await fetch('examples.json');
+          if (exResp.ok) EXAMPLES = await exResp.json();
+        } catch (e) { }
+      }
+      init();
+    }
+
+    // ── Initialization ──
+    function init() {
+      // Stats
+      const meta = DATA._meta;
+      document.getElementById('header-stats').textContent =
+        `${meta.total_items} items · ${meta.total_constants} constants · ${meta.total_type_aliases} types · ${meta.total_eips || 0} EIPs · ${meta.files_processed.length} files`;
+
+      // Counts
+      let classCount = 0, defCount = 0;
+      for (const item of Object.values(DATA.items)) {
+        if (item.kind === 'class' || item.kind === 'dataclass') classCount++;
+        else if (item.kind === 'def') defCount++;
+      }
+      document.getElementById('count-all').textContent = meta.total_items;
+      document.getElementById('count-class').textContent = classCount;
+      document.getElementById('count-def').textContent = defCount;
+      document.getElementById('count-constants').textContent = meta.total_constants;
+      document.getElementById('count-aliases').textContent = meta.total_type_aliases;
+
+      // Domain buttons
+      const domainList = document.getElementById('domain-list');
+      for (const [domain, info] of Object.entries(DATA.domains).sort((a, b) => a[0].localeCompare(b[0]))) {
+        const total = info.classes.length + info.functions.length + (info.other ? info.other.length : 0);
+        const btn = document.createElement('button');
+        btn.className = 'domain-btn';
+        btn.dataset.domain = domain;
+        btn.innerHTML = `<span>${DOMAIN_LABELS[domain] || domain}</span><span class="count">${total}</span>`;
+        btn.addEventListener('click', () => toggleDomain(domain));
+        domainList.appendChild(btn);
+      }
+
+      // Fork pills
+      const forkPills = document.getElementById('fork-pills');
+      for (const fork of [...FORK_ORDER, ...FEATURES]) {
+        const pill = document.createElement('span');
+        pill.className = 'fork-pill' + (FEATURES.includes(fork) ? ' is-feature' : '');
+        pill.dataset.fork = fork;
+        pill.textContent = fork;
+        pill.addEventListener('click', () => toggleFork(fork));
+        forkPills.appendChild(pill);
+      }
+
+      // EIP pills
+      const eipPills = document.getElementById('eip-pills');
+      if (DATA._eip_index) {
+        for (const [eipNum, info] of Object.entries(DATA._eip_index)) {
+          const pill = document.createElement('span');
+          pill.className = 'eip-pill';
+          pill.dataset.eip = eipNum;
+          pill.innerHTML = `${eipNum}<span class="eip-count">${info.count}</span>`;
+          pill.addEventListener('click', () => toggleEip(eipNum));
+          eipPills.appendChild(pill);
+        }
+      }
+
+      // Kind buttons
+      document.querySelectorAll('.kind-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.kind = btn.dataset.kind;
+          state.selected = null;
+          state.selectedFork = null;
+          hashUpdateFromCode = true;
+          window.location.hash = '#/';
+          updateUI();
+        });
+      });
+
+      // Search
+      const searchInput = document.getElementById('search');
+      searchInput.addEventListener('input', (e) => {
+        state.search = e.target.value.toLowerCase();
+        updateUI();
+      });
+
+      // Sort
+      document.getElementById('sort-select').addEventListener('change', (e) => {
+        state.sort = e.target.value;
+        updateUI();
+      });
+
+      // Entry point buttons
+      document.querySelectorAll('[data-entry]').forEach(btn => {
+        btn.addEventListener('click', () => setHash(btn.dataset.entry, null));
+      });
+
+      // About button
+      document.getElementById('about-btn').addEventListener('click', () => {
+        hashUpdateFromCode = true;
+        window.location.hash = '#/about';
+        showAbout();
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        const isTyping = document.activeElement === searchInput;
+
+        // / to focus search
+        if (e.key === '/' && !isTyping) {
+          e.preventDefault();
+          searchInput.focus();
+          return;
+        }
+
+        // Escape: if search focused, just blur (keep text).
+        // If already blurred with search text, clear it. Otherwise, go back.
+        if (e.key === 'Escape') {
+          if (document.activeElement === searchInput) {
+            searchInput.blur();  // just defocus, keep the query
+          } else if (state.search) {
+            state.search = '';
+            searchInput.value = '';
+            updateUI();
+          } else {
+            // go back
+          }
+        }
+
+        // Don't handle arrow/enter when typing in search
+        if (isTyping) return;
+
+        // Arrow Up/Down: move through item list
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'j' || e.key === 'k') {
+          e.preventDefault();
+          const rows = document.querySelectorAll('#item-rows .item-row');
+          if (rows.length === 0) return;
+
+          // Find currently selected index
+          let currentIdx = -1;
+          rows.forEach((row, i) => {
+            if (row.dataset.name === state.selected) currentIdx = i;
+          });
+
+          let nextIdx;
+          if (e.key === 'ArrowDown' || e.key === 'j') {
+            nextIdx = currentIdx < rows.length - 1 ? currentIdx + 1 : 0;
+          } else {
+            nextIdx = currentIdx > 0 ? currentIdx - 1 : rows.length - 1;
+          }
+
+          const nextName = rows[nextIdx].dataset.name;
+          setHash(nextName, null);
+
+          // Scroll the row into view
+          rows[nextIdx].scrollIntoView({ block: 'nearest' });
+          return;
+        }
+
+        // Enter: if an item is selected, keep it (no-op). Could be used for expanding.
+        // Left arrow: go back
+        if (e.key === 'ArrowLeft' || e.key === 'h') {
+          navigateBack();
+          return;
+        }
+
+        // Right arrow: if a type is clickable in the detail, this could drill in.
+        // For now, no-op.
+      });
+
+      updateUI();
+    }
+
+    // ── Filters ──
+    function toggleDomain(domain) {
+      state.domain = state.domain === domain ? null : domain;
+      state.selected = null;
+      updateUI();
+    }
+
+    function toggleFork(fork) {
+      if (state.forks.has(fork)) state.forks.delete(fork);
+      else state.forks.add(fork);
+      updateUI();
+    }
+
+    function toggleEip(eipNum) {
+      if (state.eips.has(eipNum)) state.eips.delete(eipNum);
+      else state.eips.add(eipNum);
+      updateUI();
+    }
+
+    function forkIndex(fork) {
+      const i = FORK_ORDER.indexOf(fork);
+      if (i >= 0) return i;
+      const fi = FEATURES.indexOf(fork);
+      return fi >= 0 ? FORK_ORDER.length + fi : 999;
+    }
+
+    // ── Fuzzy matching ──
+    // Returns a score (higher = better match) or null if no match.
+    // Matches query chars in order within target. Rewards:
+    //   - consecutive char runs (biggest factor)
+    //   - matching at word boundaries (after _ or uppercase)
+    //   - matching near the start of the string
+    function fuzzyScore(target, query) {
+      if (!query) return 0;
+      // Exact substring gets highest possible score
+      if (target.includes(query)) {
+        const pos = target.indexOf(query);
+        return 10000 - pos * 10 - target.length;
+      }
+      // Recursive best-match: try each occurrence of query[qi] in target
+      // and pick the highest-scoring path. Memoized by (ti, qi).
+      const memo = {};
+      function solve(ti, qi, consecutive) {
+        if (qi === query.length) return 0;
+        if (ti >= target.length) return null;
+        const key = ti + ',' + qi + ',' + consecutive;
+        if (key in memo) return memo[key];
+        let best = null;
+        for (let i = ti; i < target.length; i++) {
+          if (target[i] !== query[qi]) continue;
+          let s = 1; // base match point
+          const isConsec = (i === ti && consecutive > 0);
+          const newConsec = isConsec ? consecutive + 1 : (qi === 0 ? 1 : 0);
+          if (isConsec) s += newConsec * 6; // strong consecutive bonus
+          if (i === 0 || target[i - 1] === '_') s += 5; // word boundary
+          s += Math.max(0, 10 - i); // early match
+          const rest = solve(i + 1, qi + 1, newConsec);
+          if (rest === null) continue;
+          const total = s + rest - (i - ti) * 0.5; // gap penalty
+          if (best === null || total > best) best = total;
+        }
+        memo[key] = best;
+        return best;
+      }
+      const base = solve(0, 0, 0);
+      if (base === null) return null;
+      return base - target.length * 0.6; // prefer shorter names
+    }
+
+    // Wrap matched chars in <mark> tags for visual feedback
+    function fuzzyHighlight(text, query) {
+      if (!query) return escapeHtml(text);
+      const lower = text.toLowerCase();
+      let qi = 0, out = '';
+      for (let i = 0; i < text.length; i++) {
+        if (qi < query.length && lower[i] === query[qi]) {
+          out += `<mark style="background:rgba(88,166,255,0.25);color:inherit;padding:0;border-radius:1px">${escapeHtml(text[i])}</mark>`;
+          qi++;
+        } else {
+          out += escapeHtml(text[i]);
+        }
+      }
+      return out;
+    }
+
+    // ── Filtering + sorting ──
+    function getFilteredItems() {
+      if (state.kind === 'constants') return getFilteredConstants();
+      if (state.kind === 'type_aliases') return getFilteredAliases();
+
+      let items = Object.values(DATA.items);
+
+      // Kind filter
+      if (state.kind === 'class') items = items.filter(i => i.kind === 'class' || i.kind === 'dataclass');
+      else if (state.kind === 'def') items = items.filter(i => i.kind === 'def');
+
+      // Domain filter
+      if (state.domain) items = items.filter(i => i.domain === state.domain);
+
+      // Fork filter
+      if (state.forks.size > 0) {
+        items = items.filter(i => {
+          const itemForks = Object.keys(i.forks);
+          return itemForks.some(f => state.forks.has(f));
+        });
+      }
+
+      // EIP filter
+      if (state.eips.size > 0) {
+        items = items.filter(i => {
+          // Item must have ALL selected EIPs (AND logic)
+          for (const eipNum of state.eips) {
+            const hasEip = Object.values(i.forks).some(defn =>
+              defn.eips && defn.eips.includes(eipNum)
+            );
+            if (!hasEip) return false;
+          }
+          return true;
+        });
+      }
+
+      // Fuzzy search
+      if (state.search) {
+        const q = state.search;
+        items = items.filter(i => fuzzyScore(i.name.toLowerCase(), q) !== null);
+        items.sort((a, b) => {
+          const sa = fuzzyScore(a.name.toLowerCase(), q);
+          const sb = fuzzyScore(b.name.toLowerCase(), q);
+          return sb - sa; // higher score first
+        });
+      }
+
+      // Sort
+      items.sort((a, b) => {
+        switch (state.sort) {
+          case 'name': return a.name.localeCompare(b.name);
+          case 'introduced': return forkIndex(a.introduced) - forkIndex(b.introduced) || a.name.localeCompare(b.name);
+          case 'modified': return (b.modified_in.length - a.modified_in.length) || a.name.localeCompare(b.name);
+          case 'domain': return a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name);
+          default: return 0;
+        }
+      });
+
+      return items;
+    }
+
+    function getFilteredConstants() {
+      let entries = [];
+      for (const [name, list] of Object.entries(DATA.constants)) {
+        // Pick the latest fork entry for display, but keep all
+        const latest = list[list.length - 1];
+        if (state.search && fuzzyScore(name.toLowerCase(), state.search) === null) continue;
+        if (state.forks.size > 0 && !list.some(c => state.forks.has(c.fork))) continue;
+        entries.push({ name, entries: list, latest });
+      }
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+      return entries;
+    }
+
+    function getFilteredAliases() {
+      let entries = [];
+      for (const [name, list] of Object.entries(DATA.type_aliases)) {
+        if (state.search && fuzzyScore(name.toLowerCase(), state.search) === null) continue;
+        entries.push({ name, entries: list, latest: list[list.length - 1] });
+      }
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+      return entries;
+    }
+
+    // ── UI update ──
+    function updateUI() {
+      // Update sidebar active states
+      document.querySelectorAll('.kind-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.kind === state.kind);
+      });
+      document.getElementById('about-btn').classList.remove('active');
+      document.querySelectorAll('.domain-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.domain === state.domain);
+      });
+      document.querySelectorAll('.fork-pill').forEach(pill => {
+        pill.classList.toggle('active', state.forks.has(pill.dataset.fork));
+      });
+      document.querySelectorAll('.eip-pill').forEach(pill => {
+        pill.classList.toggle('active', state.eips.has(pill.dataset.eip));
+      });
+
+      const items = getFilteredItems();
+      document.getElementById('result-count').textContent = `${items.length} results`;
+
+      // Render item list
+      const container = document.getElementById('item-rows');
+
+      if (state.kind === 'constants') {
+        renderConstantsList(container, items);
+        renderConstantsDetail();
+        return;
+      }
+      if (state.kind === 'type_aliases') {
+        renderAliasesList(container, items);
+        renderAliasesDetail();
+        return;
+      }
+
+      const allForks = [...FORK_ORDER, ...FEATURES];
+      let html = '';
+      for (const item of items) {
+        const isActive = state.selected === item.name;
+        const forkDots = allForks.map(f => {
+          const defn = item.forks[f];
+          if (!defn) return `<div class="fork-dot" title="${f}"></div>`;
+          if (defn.is_new && f === item.introduced) return `<div class="fork-dot is-new" title="${f} (introduced)"></div>`;
+          if (defn.is_modified) return `<div class="fork-dot is-modified" title="${f} (modified)"></div>`;
+          return `<div class="fork-dot is-new" title="${f} (new)"></div>`;
+        }).join('');
+
+        const displayName = state.search ? fuzzyHighlight(item.name, state.search) : escapeHtml(item.name);
+        html += `<div class="item-row${isActive ? ' active' : ''}" data-name="${escapeHtml(item.name)}">
+      <div class="item-name">${displayName}</div>
+      <div class="item-meta">
+        <span class="item-kind ${item.kind}">${item.kind}</span>
+        <span class="item-domain-tag">${DOMAIN_LABELS[item.domain] || item.domain}</span>
+      </div>
+      <div class="item-forks-mini">${forkDots}</div>
+    </div>`;
+      }
+      container.innerHTML = html;
+
+      // Click handlers (item list)
+      container.querySelectorAll('.item-row').forEach(row => {
+        row.addEventListener('click', () => {
+          setHash(row.dataset.name, null);
+        });
+      });
+
+      renderDetail();
+    }
+
+    function renderConstantsList(container, items) {
+      let html = '<table class="table-view"><thead><tr><th>Name</th><th>Value</th><th>Category</th><th>Fork</th></tr></thead><tbody>';
+      for (const item of items) {
+        const l = item.latest;
+        const isActive = state.selected === item.name;
+        html += `<tr class="${isActive ? 'active' : ''}" data-name="${escapeHtml(item.name)}" style="cursor:pointer">
+      <td>${escapeHtml(item.name)}</td>
+      <td style="color:var(--orange)">${escapeHtml(l.value)}</td>
+      <td style="color:var(--text-dim)">${l.category}</td>
+      <td style="color:var(--purple)">${l.fork}</td>
+    </tr>`;
+      }
+      html += '</tbody></table>';
+      container.innerHTML = html;
+
+      container.querySelectorAll('tr[data-name]').forEach(row => {
+        row.addEventListener('click', () => {
+          setHash(row.dataset.name, null);
+        });
+      });
+    }
+
+    function renderAliasesList(container, items) {
+      let html = '<table class="table-view"><thead><tr><th>Name</th><th>SSZ Type</th><th>Description</th><th>Fork</th></tr></thead><tbody>';
+      for (const item of items) {
+        const l = item.latest;
+        html += `<tr>
+      <td>${escapeHtml(item.name)}</td>
+      <td style="color:var(--purple)">${escapeHtml(l.ssz_equivalent)}</td>
+      <td style="color:var(--text-muted)">${escapeHtml(l.description)}</td>
+      <td style="color:var(--cyan)">${l.fork}</td>
+    </tr>`;
+      }
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function renderConstantsDetail() {
+      const detailContent = document.getElementById('detail-content');
+      const detailEmpty = document.getElementById('detail-empty');
+
+      if (!state.selected || !DATA.constants[state.selected]) {
+        detailContent.style.display = 'none';
+        detailEmpty.style.display = 'flex';
+        return;
+      }
+
+      detailEmpty.style.display = 'none';
+      detailContent.style.display = 'block';
+
+      const entries = DATA.constants[state.selected];
+      let html = `<div class="detail-header">
+    <div class="detail-name">${escapeHtml(state.selected)}</div>
+    <div class="detail-badges">
+      <span class="badge badge-kind">constant</span>
+    </div>
+  </div>`;
+
+      html += '<table class="table-view"><thead><tr><th>Fork</th><th>Value</th><th>Category</th><th>Section</th><th>Source</th></tr></thead><tbody>';
+      for (const e of entries) {
+        html += `<tr>
+      <td style="color:var(--accent)">${e.fork}</td>
+      <td style="color:var(--orange)">${escapeHtml(e.value)}</td>
+      <td>${e.category}</td>
+      <td>${escapeHtml(e.section)}</td>
+      <td><a href="${e.github_url}" target="_blank" rel="noopener" class="github-link">View</a></td>
+    </tr>`;
+      }
+      html += '</tbody></table>';
+      detailContent.innerHTML = html;
+    }
+
+    function renderAliasesDetail() {
+      document.getElementById('detail-content').style.display = 'none';
+      document.getElementById('detail-empty').style.display = 'flex';
+      document.getElementById('detail-empty').textContent = 'Custom type aliases are shown in the table';
+    }
+
+    // ── Detail panel rendering ──
+    function renderDetail() {
+      const detailContent = document.getElementById('detail-content');
+      const detailEmpty = document.getElementById('detail-empty');
+
+      if (!state.selected || !DATA.items[state.selected]) {
+        detailContent.style.display = 'none';
+        detailEmpty.style.display = 'flex';
+        detailEmpty.textContent = 'Select an item to view its definition across forks';
+        return;
+      }
+
+      detailEmpty.style.display = 'none';
+      detailContent.style.display = 'block';
+
+      const item = DATA.items[state.selected];
+      const forks = Object.keys(item.forks);
+
+      // Auto-select first fork if none selected
+      if (!state.selectedFork || !item.forks[state.selectedFork]) {
+        state.selectedFork = forks[0];
+      }
+
+      const defn = item.forks[state.selectedFork];
+
+      // Header (with back button — uses browser history)
+      const backBtn = `<button id="back-btn" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);cursor:pointer;padding:2px 8px;font-size:12px;font-family:var(--font-sans);margin-right:8px;transition:all 0.1s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">&larr; Back</button>`;
+      let html = `<div class="detail-header">
+    <div class="detail-name">${backBtn}${escapeHtml(item.name)}</div>
+    <div class="detail-badges">
+      <span class="badge badge-kind">${item.kind}</span>
+      <span class="badge badge-domain">${DOMAIN_LABELS[item.domain] || item.domain}</span>
+      <span class="badge badge-introduced">introduced: ${item.introduced}</span>
+      ${item.modified_in.length > 0 ? `<span class="badge" style="background:rgba(210,153,34,0.12);color:var(--orange)">modified: ${item.modified_in.join(', ')}</span>` : ''}
+    </div>
+  </div>`;
+
+      // Fork tabs
+      html += '<div class="detail-nav">';
+      for (const fork of forks) {
+        const d = item.forks[fork];
+        const isActive = fork === state.selectedFork;
+        const label = fork === item.introduced ? '<span class="fork-tab-label new">base</span>'
+          : d.is_modified ? '<span class="fork-tab-label modified">mod</span>'
+            : '<span class="fork-tab-label new">new</span>';
+        html += `<button class="fork-tab${isActive ? ' active' : ''}" data-fork="${fork}">${fork}${label}</button>`;
+      }
+
+      // View toggle if there's a previous fork to diff against
+      const currentIdx = forks.indexOf(state.selectedFork);
+      if (currentIdx > 0) {
+        html += `<div class="view-toggle" style="margin-left:auto">
+      <button class="${state.viewMode === 'single' ? 'active' : ''}" data-mode="single">Code</button>
+      <button class="${state.viewMode === 'diff' ? 'active' : ''}" data-mode="diff">Diff</button>
+    </div>`;
+      }
+      html += '</div>';
+
+      // Section path
+      if (defn.section_path && defn.section_path.length > 0) {
+        html += `<div class="section-path">${defn.section_path.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div>`;
+      }
+
+      // Prose (spec documentation between heading and code block)
+      if (defn.prose) {
+        // Tokenize: split into code spans vs everything else, escape only non-code parts
+        const rawProse = defn.prose;
+        const CODE_RE = /`([^`]+)`/g;
+        let proseHtml = '';
+        let lastIdx = 0;
+        let cm;
+        while ((cm = CODE_RE.exec(rawProse)) !== null) {
+          // Escape and render the text before this code span
+          let before = escapeHtml(rawProse.slice(lastIdx, cm.index));
+          before = before.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text)">$1</strong>');
+          before = before.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+          proseHtml += before;
+          // Render the code span with clickable refs
+          const code = cm[1];
+          const codeEsc = escapeHtml(code);
+          if (DATA.items[code]) {
+            proseHtml += `<code style="font-family:var(--font-mono);font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;color:var(--accent);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="${codeEsc}">${codeEsc}</code>`;
+          } else if (DATA.constants && DATA.constants[code]) {
+            proseHtml += `<code style="font-family:var(--font-mono);font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;color:var(--orange);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="__const__${codeEsc}">${codeEsc}</code>`;
+          } else {
+            proseHtml += `<code style="font-family:var(--font-mono);font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;color:var(--cyan)">${codeEsc}</code>`;
+          }
+          lastIdx = cm.index + cm[0].length;
+        }
+        // Handle remaining text after last code span
+        let remaining = escapeHtml(rawProse.slice(lastIdx));
+        remaining = remaining.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text)">$1</strong>');
+        remaining = remaining.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        proseHtml += remaining;
+        // Line breaks
+        proseHtml = proseHtml.replace(/\n\n/g, '<br><br>');
+        proseHtml = proseHtml.replace(/\n/g, ' ');
+        html += `<div class="detail-section" style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:12px;line-height:1.55;padding:10px 14px;background:var(--surface);border-radius:6px;border-left:3px solid var(--cyan)">${proseHtml}</div></div>`;
+      }
+
+      // Source link
+      html += `<div class="detail-section">
+    <a href="${defn.github_url}" target="_blank" rel="noopener" class="github-link">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      ${defn.file} @ ${state.selectedFork}
+    </a>
+  </div>`;
+
+      // Code or diff
+      if (state.viewMode === 'diff' && currentIdx > 0) {
+        const prevFork = forks[currentIdx - 1];
+        const prevDefn = item.forks[prevFork];
+        const diff = computeDiff(prevDefn.code, defn.code);
+
+        html += `<div class="detail-section"><h4>Changes from ${prevFork} → ${state.selectedFork}</h4>`;
+
+        if (diff.removed.length > 0) {
+          html += '<div class="diff-block">';
+          for (const d of diff.removed) {
+            html += `<div class="diff-removed">- ${escapeHtml(d.line)}</div>`;
+          }
+          html += '</div><br>';
+        }
+
+        html += '<div class="diff-block">';
+        for (const d of diff.lines) {
+          const prefix = d.type === 'added' ? '+' : ' ';
+          const cls = d.type === 'added' ? 'diff-added' : 'diff-context';
+          html += `<div class="${cls}">${prefix} ${escapeHtml(d.line)}</div>`;
+        }
+        html += '</div></div>';
+      } else {
+        html += `<div class="detail-section"><h4>Definition</h4><div class="code-block">${highlightPython(defn.code)}</div></div>`;
+      }
+
+      // Inline comments
+      if (defn.inline_comments && defn.inline_comments.length > 0) {
+        html += '<div class="inline-comments">';
+        for (const c of defn.inline_comments) {
+          const cls = c.includes('New') ? 'new' : 'modified';
+          html += `<span class="inline-comment ${cls}">${escapeHtml(c)}</span>`;
+        }
+        html += '</div>';
+      }
+
+      // EIP badges
+      if (defn.eips && defn.eips.length > 0) {
+        html += '<div class="detail-section"><h4>EIPs</h4><div style="display:flex;flex-wrap:wrap;gap:6px">';
+        for (const eipNum of defn.eips) {
+          const eipInfo = DATA._eip_index && DATA._eip_index[eipNum];
+          const count = eipInfo ? eipInfo.count : '?';
+          html += `<span class="eip-pill active" data-eip-badge="${eipNum}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">EIP-${eipNum}<span class="eip-count">${count} items</span><a href="https://eips.ethereum.org/EIPS/eip-${eipNum}" target="_blank" rel="noopener" style="color:var(--text-dim);font-size:10px;text-decoration:none" title="View EIP spec">↗</a></span>`;
+        }
+        html += '</div></div>';
+      }
+
+      // ── Enriched data sections ──
+
+      // Docstring
+      if (defn.docstring) {
+        html += `<div class="detail-section"><h4>Description</h4><div style="color:var(--text-muted);font-size:13px;padding:8px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">${escapeHtml(defn.docstring)}</div></div>`;
+      }
+
+      // Function signature (structured)
+      if (defn.params && defn.params.length > 0) {
+        html += '<div class="detail-section"><h4>Parameters</h4><table class="table-view"><thead><tr><th>Name</th><th>Type</th></tr></thead><tbody>';
+        for (const p of defn.params) {
+          html += `<tr><td>${escapeHtml(p.name)}</td><td>${linkifyType(p.type)}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        if (defn.return_type) {
+          html += `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">Returns: ${linkifyType(defn.return_type)}</div>`;
+        }
+        html += '</div>';
+      }
+
+      // Container fields (structured)
+      if (defn.fields && defn.fields.length > 0) {
+        html += '<div class="detail-section"><h4>Fields</h4><table class="table-view"><thead><tr><th>Name</th><th>Type</th><th>Note</th></tr></thead><tbody>';
+        for (const f of defn.fields) {
+          const noteHtml = f.comment
+            ? (f.comment.includes('New') ? `<span style="color:var(--green)">${escapeHtml(f.comment)}</span>`
+              : f.comment.includes('Modified') ? `<span style="color:var(--orange)">${escapeHtml(f.comment)}</span>`
+                : escapeHtml(f.comment))
+            : '';
+          html += `<tr><td>${escapeHtml(f.name)}</td><td>${linkifyType(f.type)}</td><td style="font-size:11px">${noteHtml}</td></tr>`;
+        }
+        html += '</tbody></table></div>';
+      }
+
+      // Example from spec tests (toggleable, fork-aware)
+      if (EXAMPLES && EXAMPLES[item.name]) {
+        const exData = EXAMPLES[item.name].forks || {};
+        // Pick example for selected fork, fall back to nearest available
+        const selectedFork = state.selectedFork;
+        const allForkOrder = [...FORK_ORDER, ...FEATURES];
+        let ex = exData[selectedFork];
+        let exFork = selectedFork;
+        if (!ex) {
+          // Find closest fork (prefer earlier, then later)
+          const idx = allForkOrder.indexOf(selectedFork);
+          for (let d = 1; d < allForkOrder.length; d++) {
+            if (idx - d >= 0 && exData[allForkOrder[idx - d]]) { ex = exData[allForkOrder[idx - d]]; exFork = allForkOrder[idx - d]; break; }
+            if (idx + d < allForkOrder.length && exData[allForkOrder[idx + d]]) { ex = exData[allForkOrder[idx + d]]; exFork = allForkOrder[idx + d]; break; }
+          }
+        }
+        if (ex) {
+          const exId = 'example-block';
+          const forkNote = exFork !== selectedFork ? ` (from ${exFork})` : '';
+          html += `<div class="detail-section">
+        <h4 style="display:flex;align-items:center;gap:8px">
+          Example
+          <span style="font-size:10px;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0">${exFork} test fixture${forkNote}${ex.truncated ? ` · ${ex.total_lines} lines, showing 300` : ''}</span>
+          <button id="toggle-example" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);cursor:pointer;padding:1px 8px;font-size:11px;font-family:var(--font-sans)">Show</button>
+          <a href="${ex.raw_url}" target="_blank" rel="noopener" style="font-size:10px;font-weight:400;color:var(--accent);text-decoration:none;text-transform:none;letter-spacing:0">raw</a>
+        </h4>
+        <div id="${exId}" style="display:none">
+          <div class="code-block" style="font-size:11px;line-height:1.4;max-height:400px;overflow-y:auto">${escapeHtml(ex.yaml)}${ex.truncated ? '\n...' : ''}</div>
+        </div>
+      </div>`;
+        }
+      }
+
+      // Call graph: always shows full on_block tree with current item highlighted.
+      // Nodes on the path to the current item are expanded. Everything else is collapsed.
+      if (item.kind === 'def') {
+        function getCalls(name) {
+          const it = DATA.items[name];
+          if (!it || it.kind !== 'def') return [];
+          const fks = Object.keys(it.forks);
+          const d = it.forks[state.selectedFork] || it.forks[fks[fks.length - 1]];
+          return d ? (d.references || []).filter(r => DATA.items[r] && DATA.items[r].kind === 'def') : [];
+        }
+
+        // Build full tree from a root, tracking which nodes are on the path to target
+        function buildFullTree(name, depth, seen, maxDepth, target) {
+          if (depth > maxDepth || seen.has(name)) return null;
+          seen.add(name);
+          const calls = getCalls(name);
+          const children = calls.map(r => buildFullTree(r, depth + 1, new Set(seen), maxDepth, target)).filter(Boolean);
+          const isCurrent = name === target;
+          const onPath = isCurrent || children.some(c => c.onPath);
+          return { name, children, isCurrent, onPath };
+        }
+
+        function renderFullTree(node, depth) {
+          if (!node) return '';
+          const indent = depth * 16;
+          const hasKids = node.children && node.children.length > 0;
+
+          // Styling for current item
+          const isCurrent = node.isCurrent;
+          const style = isCurrent
+            ? 'font-weight:600;color:var(--accent);background:rgba(88,166,255,0.15);border-radius:3px;padding:1px 6px;margin:-1px -6px;'
+            : node.onPath
+              ? 'color:var(--text);'
+              : 'color:var(--text-muted);';
+
+          // Expand if on path to current item, or if IS the current item
+          const shouldExpand = node.onPath || isCurrent;
+          const toggleChar = hasKids ? (shouldExpand ? '▼' : '▶') : '';
+          const toggle = hasKids
+            ? `<span style="color:var(--text-dim);font-size:10px;margin-right:4px;cursor:pointer" data-tree-toggle="1">${toggleChar}</span>`
+            : '<span style="width:14px;display:inline-block"></span>';
+
+          let out = `<div style="padding:1px 0;margin-left:${indent}px;white-space:nowrap">${toggle}<span style="font-family:var(--font-mono);font-size:11px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;${style}" data-ref-name="${node.name}">${node.name}</span></div>`;
+
+          if (hasKids) {
+            out += `<div class="tree-children" style="display:${shouldExpand ? 'block' : 'none'}">`;
+            for (const child of node.children) {
+              out += renderFullTree(child, depth + 1);
+            }
+            out += '</div>';
+          }
+          return out;
+        }
+
+        // Try on_block first (covers state_transition, process_epoch, process_block, fork choice)
+        // Fall back to state_transition, then just show the item's own subtree
+        const roots = ['on_block', 'state_transition', 'on_attestation', 'on_tick'];
+        let tree = null;
+        let rootUsed = null;
+        for (const root of roots) {
+          if (!DATA.items[root]) continue;
+          const t = buildFullTree(root, 0, new Set(), 6, item.name);
+          if (t && t.onPath) { tree = t; rootUsed = root; break; }
+        }
+        // If not found in any root, just show own subtree
+        if (!tree) {
+          tree = buildFullTree(item.name, 0, new Set(), 4, item.name);
+          rootUsed = null;
+        }
+
+        if (tree && tree.children && tree.children.length > 0) {
+          html += `<div class="detail-section">
+        <h4>Call Graph</h4>
+        <div id="call-tree" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:500px;overflow:auto">
+          ${renderFullTree(tree, 0)}
+        </div>
+      </div>`;
+        }
+      }
+
+      // Type tree (for containers)
+      if (item.kind === 'class' || item.kind === 'dataclass') {
+        function buildTypeTree(name, depth, seen, maxDepth) {
+          if (depth > maxDepth || seen.has(name)) return null;
+          seen.add(name);
+          const it = DATA.items[name];
+          if (!it) return null;
+          const fks = Object.keys(it.forks);
+          const d = it.forks[state.selectedFork] || it.forks[fks[fks.length - 1]];
+          if (!d) return null;
+          const fields = d.fields || [];
+          const fieldTypes = [...new Set(fields.map(f => {
+            const m = f.type.match(/^(?:List|Vector|Sequence)\[([A-Z]\w+)/);
+            return m ? m[1] : f.type.match(/^([A-Z][a-z]\w+)/) ? f.type.match(/^([A-Z][a-z]\w+)/)[1] : null;
+          }).filter(t => t && DATA.items[t] && (DATA.items[t].kind === 'class' || DATA.items[t].kind === 'dataclass')))];
+          const children = fieldTypes.map(r => buildTypeTree(r, depth + 1, new Set(seen), maxDepth)).filter(Boolean);
+          return { name, children };
+        }
+
+        function renderTypeTree(node, depth) {
+          if (!node) return '';
+          const indent = depth * 16;
+          const hasKids = node.children && node.children.length > 0;
+          const toggle = hasKids ? `<span style="color:var(--text-dim);font-size:10px;margin-right:4px;cursor:pointer" data-tree-toggle="1">${depth === 0 ? '▼' : '▶'}</span>` : '<span style="width:14px;display:inline-block"></span>';
+          let out = `<div style="padding:1px 0;margin-left:${indent}px;white-space:nowrap">${toggle}<span style="font-family:var(--font-mono);font-size:11px;color:var(--purple);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" data-ref-name="${node.name}">${node.name}</span></div>`;
+          if (hasKids) {
+            out += `<div class="tree-children" style="display:${depth === 0 ? 'block' : 'none'}">`;
+            for (const child of node.children) out += renderTypeTree(child, depth + 1);
+            out += '</div>';
+          }
+          return out;
+        }
+
+        const typeTree = buildTypeTree(item.name, 0, new Set(), 4);
+        if (typeTree && typeTree.children && typeTree.children.length > 0) {
+          html += `<div class="detail-section">
+        <h4>Type Tree</h4>
+        <div id="call-tree" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:400px;overflow:auto">
+          ${renderTypeTree(typeTree, 0)}
+        </div>
+      </div>`;
+        }
+      }
+
+      // Related items (grouped by relationship)
+      {
+        const refs = defn.references || [];
+        const referencedBy = (DATA._references && DATA._references[item.name]) || [];
+
+        // Split references into types vs functions
+        const callsTypes = refs.filter(r => DATA.items[r] && (DATA.items[r].kind === 'class' || DATA.items[r].kind === 'dataclass'));
+        const callsFuncs = refs.filter(r => DATA.items[r] && DATA.items[r].kind === 'def');
+
+        // Split referenced-by into types vs functions
+        const usedByTypes = referencedBy.filter(r => DATA.items[r] && (DATA.items[r].kind === 'class' || DATA.items[r].kind === 'dataclass'));
+        const usedByFuncs = referencedBy.filter(r => DATA.items[r] && DATA.items[r].kind === 'def');
+
+        // Find siblings: items in the same domain that share references with this item
+        const siblings = [];
+        if (refs.length > 0) {
+          const refSet = new Set(refs);
+          for (const [otherName, otherItem] of Object.entries(DATA.items)) {
+            if (otherName === item.name) continue;
+            if (otherItem.domain !== item.domain) continue;
+            const otherForkKeys = Object.keys(otherItem.forks);
+            const latestFork = otherForkKeys[otherForkKeys.length - 1];
+            const otherRefs = otherItem.forks[latestFork]?.references || [];
+            const overlap = otherRefs.filter(r => refSet.has(r)).length;
+            if (overlap >= 2) siblings.push({ name: otherName, overlap });
+          }
+          siblings.sort((a, b) => b.overlap - a.overlap);
+        }
+
+        const hasRelated = callsTypes.length || callsFuncs.length || usedByTypes.length || usedByFuncs.length || siblings.length;
+
+        if (hasRelated) {
+          html += '<div class="detail-section"><h4>Related</h4>';
+
+          function renderPillGroup(label, names, maxShow) {
+            if (names.length === 0) return '';
+            let out = `<div style="margin-bottom:8px"><span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.3px">${label}</span><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`;
+            const show = names.slice(0, maxShow || 20);
+            for (const ref of show) {
+              const refItem = DATA.items[ref];
+              const refKind = refItem ? refItem.kind : '';
+              const kindColor = (refKind === 'class' || refKind === 'dataclass') ? 'var(--purple)' : refKind === 'def' ? 'var(--green)' : 'var(--text-muted)';
+              out += `<span style="font-family:var(--font-mono);font-size:11px;padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);color:${kindColor};cursor:pointer" data-ref-name="${escapeHtml(ref)}">${escapeHtml(ref)}</span>`;
+            }
+            if (names.length > (maxShow || 20)) out += `<span style="font-size:11px;color:var(--text-dim);padding:2px 4px">+${names.length - (maxShow || 20)} more</span>`;
+            out += '</div></div>';
+            return out;
+          }
+
+          if (item.kind === 'def') {
+            html += renderPillGroup('Calls', callsFuncs, 15);
+            html += renderPillGroup('Uses types', callsTypes, 15);
+            html += renderPillGroup('Called by', usedByFuncs, 20);
+            html += renderPillGroup('Used by types', usedByTypes, 10);
+          } else {
+            html += renderPillGroup('Contains types', callsTypes, 15);
+            html += renderPillGroup('Contained in', usedByTypes, 15);
+            html += renderPillGroup('Used by functions', usedByFuncs, 20);
+          }
+
+          if (siblings.length > 0) {
+            html += renderPillGroup('Similar (' + item.domain + ')', siblings.slice(0, 10).map(s => s.name), 10);
+          }
+
+          html += '</div>';
+        }
+      }
+
+      detailContent.innerHTML = html;
+
+      // Click handlers for all clickable type/ref links
+      detailContent.querySelectorAll('[data-ref-name]').forEach(pill => {
+        pill.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const refName = pill.dataset.refName;
+          if (refName.startsWith('__alias__')) {
+            // Type alias — show info with example value
+            const aliasName = refName.slice(9);
+            const aliases = DATA.type_aliases && DATA.type_aliases[aliasName];
+            if (aliases && aliases.length > 0) {
+              const a = aliases[0];
+              // Find an example value from test fixtures
+              let exampleVal = '';
+              if (EXAMPLES && DATA._field_index) {
+                // Find a container field with this type
+                for (const [key, fi] of Object.entries(DATA._field_index)) {
+                  if (fi.type === aliasName || fi.type.startsWith(aliasName)) {
+                    const container = fi.container;
+                    // Look for this field in an example YAML
+                    if (EXAMPLES[container] && EXAMPLES[container].forks) {
+                      const forkKeys = Object.keys(EXAMPLES[container].forks);
+                      const exFork = forkKeys[forkKeys.length - 1]; // latest
+                      const yaml = EXAMPLES[container].forks[exFork].yaml;
+                      // Simple YAML field extraction
+                      const fieldName = fi.field;
+                      const match = yaml.match(new RegExp('^' + fieldName + ':\\s*(.+)$', 'm'));
+                      if (match) {
+                        exampleVal = match[1].trim().replace(/^'|'$/g, '');
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+              const exLine = exampleVal ? `\n\nExample: ${exampleVal}` : '';
+              alert(`${aliasName}\n\nSSZ type: ${a.ssz_equivalent}\n${a.description}\n\nDefined in: ${a.fork}${exLine}`);
+            }
+          } else if (refName.startsWith('__const__')) {
+            // Constant — show value at each fork
+            const constName = refName.slice(9);
+            const entries = DATA.constants && DATA.constants[constName];
+            if (entries && entries.length > 0) {
+              let msg = constName + '\n';
+              // Group by value to avoid repetition
+              const seen = new Map();
+              for (const e of entries) {
+                const val = e.value;
+                if (!seen.has(val)) seen.set(val, []);
+                seen.get(val).push(e.fork);
+              }
+              for (const [val, forks] of seen) {
+                msg += `\n${forks.join(', ')}: ${val}`;
+                if (entries.find(e => e.value === val && e.description)) {
+                  msg += `  (${entries.find(e => e.value === val && e.description).description})`;
+                }
+              }
+              msg += `\n\nCategory: ${entries[0].category}`;
+              alert(msg);
+            }
+          } else if (DATA.items[refName]) {
+            navigateTo(refName);
+          }
+        });
+      });
+
+      // EIP badge click handlers
+      detailContent.querySelectorAll('[data-eip-badge]').forEach(badge => {
+        badge.addEventListener('click', (e) => {
+          if (e.target.tagName === 'A') return; // let external links through
+          e.stopPropagation();
+          toggleEip(badge.dataset.eipBadge);
+        });
+      });
+
+      // Tree toggle (expand/collapse subtrees)
+      detailContent.querySelectorAll('[data-tree-toggle]').forEach(toggle => {
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const childDiv = toggle.parentElement.nextElementSibling;
+          if (childDiv && childDiv.classList.contains('tree-children')) {
+            const visible = childDiv.style.display !== 'none';
+            childDiv.style.display = visible ? 'none' : 'block';
+            toggle.textContent = visible ? '▶' : '▼';
+          }
+        });
+      });
+
+      // Back button
+      const backBtnEl = detailContent.querySelector('#back-btn');
+      if (backBtnEl) backBtnEl.addEventListener('click', navigateBack);
+
+      // Example toggle
+      const toggleBtn = detailContent.querySelector('#toggle-example');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          const exBlock = document.getElementById('example-block');
+          if (exBlock) {
+            const visible = exBlock.style.display !== 'none';
+            exBlock.style.display = visible ? 'none' : 'block';
+            toggleBtn.textContent = visible ? 'Show' : 'Hide';
+          }
+        });
+      }
+
+      // Fork tab handlers
+      detailContent.querySelectorAll('.fork-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          state.selectedFork = tab.dataset.fork;
+          state.viewMode = 'single';
+          // Update hash without full re-render (just fork change)
+          setHash(state.selected, state.selectedFork);
+          renderDetail();
+        });
+      });
+
+      // View toggle handlers
+      detailContent.querySelectorAll('.view-toggle button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.viewMode = btn.dataset.mode;
+          renderDetail();
+        });
+      });
+    }
+
+    // ── About / README ──
+
+    const README_MD = "";
+
+
+    function renderMarkdown(md) {
+      // Minimal markdown-to-HTML renderer for the README
+      let html = escapeHtml(md);
+
+      // Code blocks (``` ... ```)
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        return `<div class="code-block" style="font-size:11px;line-height:1.4;margin:8px 0;padding:10px 12px">${code.trim()}</div>`;
+      });
+
+      // Tables
+      html = html.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm, (_, header, sep, body) => {
+        const ths = header.split('|').filter(c => c.trim()).map(c => `<th>${c.trim()}</th>`).join('');
+        const rows = body.trim().split('\n').map(row => {
+          const tds = row.split('|').filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join('');
+          return `<tr>${tds}</tr>`;
+        }).join('');
+        return `<table class="table-view" style="margin:12px 0"><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+      });
+
+      // Headers
+      html = html.replace(/^#### (.+)$/gm, '<h4 style="font-size:12px;font-weight:600;margin:14px 0 4px;color:var(--text)">$1</h4>');
+      html = html.replace(/^### (.+)$/gm, '<h3 style="font-size:12px;font-weight:600;margin:16px 0 4px;color:var(--text)">$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2 style="font-size:13px;font-weight:600;margin:20px 0 6px;color:var(--text);padding-bottom:4px;border-bottom:1px solid var(--border)">$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:15px;font-weight:700;margin:0 0 6px;color:var(--text)">$1</h1>');
+
+      // Bold and italic
+      html = html.replace(/\*\*\[(.+?)\]\((.+?)\)\*\*/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;text-decoration:none">$1</a>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text)">$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em style="color:var(--text-muted)">$1</em>');
+
+      // Inline code (must not span across newlines)
+      html = html.replace(/`([^`\n]+)`/g, '<code style="font-family:var(--font-mono);font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;color:var(--accent)">$1</code>');
+
+      // Links
+      html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">$1</a>');
+
+      // Line breaks → paragraphs
+      html = html.replace(/\n\n/g, '</p><p style="margin:6px 0;color:var(--text-muted);font-size:12px;line-height:1.55">');
+      html = '<p style="margin:6px 0;color:var(--text-muted);font-size:12px;line-height:1.55">' + html + '</p>';
+
+      // Clean up empty paragraphs around block elements
+      html = html.replace(/<p[^>]*>\s*(<h[1-4]|<div|<table)/g, '$1');
+      html = html.replace(/(<\/h[1-4]>|<\/div>|<\/table>)\s*<\/p>/g, '$1');
+
+      return html;
+    }
+
+    function showAbout() {
+      state.selected = null;
+      state.kind = 'all';
+      document.querySelectorAll('.kind-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('about-btn').classList.add('active');
+
+      const detailContent = document.getElementById('detail-content');
+      const detailEmpty = document.getElementById('detail-empty');
+      detailEmpty.style.display = 'none';
+      detailContent.style.display = 'block';
+      detailContent.innerHTML = `<div style="max-width:720px">${renderMarkdown(README_MD)}</div>`;
+    }
+
+    // ── Boot ──
+    loadData().then(() => {
+      // Apply initial hash after data is loaded
+      const mode = readHash();
+      if (mode === 'about') {
+        showAbout();
+      } else if (state.selected) {
+        updateUI();
+      }
+    });
+  </script>
+  <script id="spec-data"
+    type="application/json"></script>
+</body>
+
+</html>
